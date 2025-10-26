@@ -379,7 +379,7 @@ export const PixelLandscape = () => {
     const onResize = () => render();
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
-  }, []);
+  }, [hunger]);
 
   return (
     <canvas
