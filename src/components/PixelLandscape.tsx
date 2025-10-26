@@ -168,6 +168,36 @@ function drawCreature(ctx: CanvasRenderingContext2D, image: HTMLImageElement, wi
   ctx.drawImage(image, creatureX, creatureY, creatureWidth, creatureHeight);
 }
 
+// API function to fetch successful DAG runs from Airflow
+async function fetchSuccessfulDagRuns(): Promise<number> {
+  try {
+    // Calculate timestamp for 30 minutes ago
+    const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+
+    // Build API URL with query parameters (using relative URL for Vite proxy)
+    const apiUrl = new URL('/api/v2/dags/~/dagRuns', window.location.origin);
+    apiUrl.searchParams.append('limit', '50');
+    apiUrl.searchParams.append('offset', '0');
+    apiUrl.searchParams.append('start_date_gte', thirtyMinutesAgo);
+
+    const response = await fetch(apiUrl.toString());
+
+    if (!response.ok) {
+      throw new Error(`API request failed with status ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    // Count successful DAG runs
+    const successfulRuns = data.dag_runs?.filter((run: any) => run.state === 'success').length || 0;
+
+    return successfulRuns;
+  } catch (error) {
+    console.error('Error fetching DAG runs:', error);
+    return 0; // Return 0 on error to avoid breaking the component
+  }
+}
+
 function drawHungerBar(ctx: CanvasRenderingContext2D, currentHunger: number = 0, maxHunger: number = 10) {
   const barX = 20;
   const barY = 40;
@@ -243,6 +273,23 @@ export const PixelLandscape = () => {
     localStorage.setItem("hungriness", "0");
     return 0;
   });
+
+  // Fetch successful DAG runs and update hunger on mount and periodically
+  useEffect(() => {
+    const updateHungerFromAPI = async () => {
+      const successfulRuns = await fetchSuccessfulDagRuns();
+      setHunger(successfulRuns);
+    };
+
+    // Initial fetch on mount
+    updateHungerFromAPI();
+
+    // Set up polling every 5 minutes (300000ms)
+    const intervalId = setInterval(updateHungerFromAPI, 5 * 60 * 1000);
+
+    // Cleanup interval on unmount
+    return () => clearInterval(intervalId);
+  }, []);
 
   // Sync hunger changes to localStorage and trigger re-render
   useEffect(() => {

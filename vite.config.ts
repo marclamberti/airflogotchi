@@ -51,6 +51,12 @@ export default defineConfig(({ command }) => {
     resolve: { alias: { src: "/src" } },
     server: {
       cors: true, // Only used by the dev server.
+      proxy: {
+        '/api': {
+          target: 'http://localhost:8080',
+          changeOrigin: true,
+        }
+      }
     },
     test: {
       coverage: {
