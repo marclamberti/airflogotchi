@@ -1,5 +1,6 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import creatureNormal from "../assets/creature/normal.png";
+import creatureHungry from "../assets/creature/hungry.png";
 
 // Minecraft-style pixel landscape with grass, dirt, and clouds
 
@@ -228,16 +229,54 @@ function drawHungerBar(ctx: CanvasRenderingContext2D, currentHunger: number = 0,
 
 export const PixelLandscape = () => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const creatureImageRef = useRef<HTMLImageElement | null>(null);
-  const imageLoadedRef = useRef<boolean>(false);
+  const creatureNormalImageRef = useRef<HTMLImageElement | null>(null);
+  const creatureHungryImageRef = useRef<HTMLImageElement | null>(null);
+  const imagesLoadedRef = useRef<{ normal: boolean; hungry: boolean }>({ normal: false, hungry: false });
 
-  // Load creature image once
+  // Initialize hunger from localStorage or default to 0
+  const [hunger, setHunger] = useState<number>(() => {
+    const stored = localStorage.getItem("hungriness");
+    if (stored !== null) {
+      return parseInt(stored, 10);
+    }
+    // Set initial value to 0 in localStorage
+    localStorage.setItem("hungriness", "0");
+    return 0;
+  });
+
+  // Sync hunger changes to localStorage and trigger re-render
   useEffect(() => {
-    const img = new Image();
-    img.src = creatureNormal;
-    img.onload = () => {
-      creatureImageRef.current = img;
-      imageLoadedRef.current = true;
+    localStorage.setItem("hungriness", hunger.toString());
+    // Trigger canvas re-render when hunger changes
+    const canvas = canvasRef.current;
+    if (canvas) {
+      const event = new Event('resize');
+      window.dispatchEvent(event);
+    }
+  }, [hunger]);
+
+  // Load creature images once
+  useEffect(() => {
+    // Load normal creature image
+    const normalImg = new Image();
+    normalImg.src = creatureNormal;
+    normalImg.onload = () => {
+      creatureNormalImageRef.current = normalImg;
+      imagesLoadedRef.current.normal = true;
+      // Trigger a re-render when image is loaded
+      const canvas = canvasRef.current;
+      if (canvas) {
+        const event = new Event('resize');
+        window.dispatchEvent(event);
+      }
+    };
+
+    // Load hungry creature image
+    const hungryImg = new Image();
+    hungryImg.src = creatureHungry;
+    hungryImg.onload = () => {
+      creatureHungryImageRef.current = hungryImg;
+      imagesLoadedRef.current.hungry = true;
       // Trigger a re-render when image is loaded
       const canvas = canvasRef.current;
       if (canvas) {
@@ -276,13 +315,17 @@ export const PixelLandscape = () => {
       drawClouds(ctx!, width, blockSize);
       drawTerrain(ctx!, width, height, blockSize);
 
-      // Draw creature if image is loaded
-      if (imageLoadedRef.current && creatureImageRef.current) {
-        drawCreature(ctx!, creatureImageRef.current, width, height, blockSize);
+      // Draw creature - use hungry image if hunger <= 3, otherwise normal
+      const isHungry = hunger <= 3;
+      const creatureImage = isHungry ? creatureHungryImageRef.current : creatureNormalImageRef.current;
+      const imageLoaded = isHungry ? imagesLoadedRef.current.hungry : imagesLoadedRef.current.normal;
+
+      if (imageLoaded && creatureImage) {
+        drawCreature(ctx!, creatureImage, width, height, blockSize);
       }
 
       // Draw hunger bar UI overlay
-      drawHungerBar(ctx!, 0, 10);
+      drawHungerBar(ctx!, hunger, 10);
     }
 
     render();
