@@ -446,13 +446,25 @@ export const PixelLandscape = () => {
 
   // Track if creature is dead (no hearts left)
   const [isDead, setIsDead] = useState<boolean>(() => {
+    const stored = localStorage.getItem("isDead");
+    if (stored !== null) {
+      return stored === "true";
+    }
+    // Check hearts as fallback
     const storedHearts = localStorage.getItem("hearts");
-    return storedHearts !== null && parseInt(storedHearts, 10) === 0;
+    const isDeadState = storedHearts !== null && parseInt(storedHearts, 10) === 0;
+    localStorage.setItem("isDead", isDeadState.toString());
+    return isDeadState;
   });
 
   // Fetch successful DAG runs and update hunger on mount and periodically
   useEffect(() => {
     const updateHungerFromAPI = async () => {
+      // If dead, don't update anything - creature can't eat or change state
+      if (isDead) {
+        return;
+      }
+
       const successfulRuns = await fetchSuccessfulDagRuns();
       const hasRunsInLastHour = await fetchSuccessfulDagRunsLastHour();
 
@@ -501,7 +513,7 @@ export const PixelLandscape = () => {
 
     // Cleanup interval on unmount
     return () => clearInterval(intervalId);
-  }, [lastDailyCheck, hearts]);
+  }, [lastDailyCheck, hearts, isDead]);
 
   // Sync hunger changes to localStorage and trigger re-render
   useEffect(() => {
@@ -513,6 +525,11 @@ export const PixelLandscape = () => {
       window.dispatchEvent(event);
     }
   }, [hunger]);
+
+  // Sync isDead state to localStorage
+  useEffect(() => {
+    localStorage.setItem("isDead", isDead.toString());
+  }, [isDead]);
 
   // Load creature images once
   useEffect(() => {
@@ -670,6 +687,7 @@ export const PixelLandscape = () => {
       localStorage.removeItem("hungriness");
       localStorage.removeItem("hearts");
       localStorage.removeItem("lastDailyCheck");
+      localStorage.removeItem("isDead");
       window.location.reload();
     }
   };
