@@ -174,12 +174,12 @@ function drawHungerBar(ctx: CanvasRenderingContext2D, currentHunger: number = 0,
   const barHeight = 20;
   const borderWidth = 2;
 
-  // Draw "0/10" text above the bar
+  // Draw "Hunger 0/10" text above the bar
   ctx.font = "16px monospace";
   ctx.fillStyle = "#FFFFFF";
   ctx.strokeStyle = "#000000";
   ctx.lineWidth = 3;
-  const hungerText = `${currentHunger}/${maxHunger}`;
+  const hungerText = `Hunger ${currentHunger}/${maxHunger}`;
   ctx.strokeText(hungerText, barX, barY - 10);
   ctx.fillText(hungerText, barX, barY - 10);
 
