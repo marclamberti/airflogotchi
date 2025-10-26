@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import creatureNormal from "../assets/creature/normal.png";
 import creatureHungry from "../assets/creature/hungry.png";
 import creatureSleep from "../assets/creature/sleep.png";
+import creatureDead from "../assets/creature/dead.png";
 
 // Minecraft-style pixel landscape with grass, dirt, and clouds
 
@@ -229,12 +230,92 @@ async function fetchSuccessfulDagRunsLastHour(): Promise<boolean> {
   }
 }
 
-function drawHungerBar(ctx: CanvasRenderingContext2D, currentHunger: number = 0, maxHunger: number = 10) {
+// API function to check if there were any successful DAG runs in the past 24 hours
+async function fetchSuccessfulDagRunsLast24Hours(): Promise<boolean> {
+  try {
+    // Calculate timestamp for 24 hours ago
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+    // Build API URL with query parameters (using relative URL for Vite proxy)
+    const apiUrl = new URL('/api/v2/dags/~/dagRuns', window.location.origin);
+    apiUrl.searchParams.append('limit', '100');
+    apiUrl.searchParams.append('offset', '0');
+    apiUrl.searchParams.append('start_date_gte', twentyFourHoursAgo);
+
+    const response = await fetch(apiUrl.toString());
+
+    if (!response.ok) {
+      throw new Error(`API request failed with status ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    // Check if any successful DAG runs exist
+    const hasSuccessfulRuns = data.dag_runs?.some((run: any) => run.state === 'success') || false;
+
+    return hasSuccessfulRuns;
+  } catch (error) {
+    console.error('Error fetching DAG runs for daily heart check:', error);
+    return true; // Return true on error to avoid removing hearts incorrectly
+  }
+}
+
+function drawPixelHeart(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, filled: boolean) {
+  // Pixel art heart pattern (8x7 grid)
+  const heartPattern = [
+    [0, 1, 1, 0, 0, 1, 1, 0],
+    [1, 1, 1, 1, 1, 1, 1, 1],
+    [1, 1, 1, 1, 1, 1, 1, 1],
+    [1, 1, 1, 1, 1, 1, 1, 1],
+    [0, 1, 1, 1, 1, 1, 1, 0],
+    [0, 0, 1, 1, 1, 1, 0, 0],
+    [0, 0, 0, 1, 1, 0, 0, 0],
+  ];
+
+  const pixelSize = size / 8;
+
+  for (let row = 0; row < heartPattern.length; row++) {
+    const rowData = heartPattern[row];
+    if (!rowData) continue;
+
+    for (let col = 0; col < rowData.length; col++) {
+      if (rowData[col] === 1) {
+        if (filled) {
+          // Filled heart - red
+          ctx.fillStyle = "#FF0000";
+        } else {
+          // Empty heart - white outline with dark interior
+          ctx.fillStyle = "#FFFFFF";
+        }
+        ctx.fillRect(x + col * pixelSize, y + row * pixelSize, pixelSize, pixelSize);
+
+        // Add black outline to each pixel for definition
+        ctx.strokeStyle = "#000000";
+        ctx.lineWidth = 0.5;
+        ctx.strokeRect(x + col * pixelSize, y + row * pixelSize, pixelSize, pixelSize);
+      }
+    }
+  }
+}
+
+function drawHungerBar(ctx: CanvasRenderingContext2D, currentHunger: number = 0, maxHunger: number = 10, currentHearts: number = 5) {
   const barX = 20;
-  const barY = 40;
+  const barY = 70; // Moved down to make room for hearts
   const barWidth = 150;
   const barHeight = 20;
   const borderWidth = 2;
+
+  // Draw five pixel hearts above the hunger bar (based on long-term health, not hunger)
+  const heartSize = 16;
+  const heartSpacing = 20;
+  const heartsY = 20;
+  const maxHearts = 5;
+
+  for (let i = 0; i < maxHearts; i++) {
+    const heartX = barX + i * heartSpacing;
+    const filled = i < currentHearts; // Fill hearts from left to right based on current hearts
+    drawPixelHeart(ctx, heartX, heartsY, heartSize, filled);
+  }
 
   // Draw "Hunger 0/10" text above the bar
   ctx.font = "16px monospace";
@@ -288,12 +369,45 @@ function drawHungerBar(ctx: CanvasRenderingContext2D, currentHunger: number = 0,
   }
 }
 
+function drawResetButton(ctx: CanvasRenderingContext2D, canvasWidth: number, canvasHeight: number) {
+  const buttonWidth = 80;
+  const buttonHeight = 30;
+  const buttonX = canvasWidth - buttonWidth - 20;
+  const buttonY = canvasHeight - buttonHeight - 20;
+  const borderWidth = 2;
+
+  // Draw button border (dark outline)
+  ctx.fillStyle = "#000000";
+  ctx.fillRect(buttonX - borderWidth, buttonY - borderWidth, buttonWidth + borderWidth * 2, buttonHeight + borderWidth * 2);
+
+  // Draw button background
+  ctx.fillStyle = "#FF6B6B";
+  ctx.fillRect(buttonX, buttonY, buttonWidth, buttonHeight);
+
+  // Draw highlight effect (retro style)
+  ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
+  ctx.fillRect(buttonX, buttonY, buttonWidth, buttonHeight / 3);
+
+  // Draw button text
+  ctx.font = "bold 14px monospace";
+  ctx.fillStyle = "#FFFFFF";
+  ctx.strokeStyle = "#000000";
+  ctx.lineWidth = 2;
+  const text = "RESET";
+  const textMetrics = ctx.measureText(text);
+  const textX = buttonX + (buttonWidth - textMetrics.width) / 2;
+  const textY = buttonY + buttonHeight / 2 + 5;
+  ctx.strokeText(text, textX, textY);
+  ctx.fillText(text, textX, textY);
+}
+
 export const PixelLandscape = () => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const creatureNormalImageRef = useRef<HTMLImageElement | null>(null);
   const creatureHungryImageRef = useRef<HTMLImageElement | null>(null);
   const creatureSleepImageRef = useRef<HTMLImageElement | null>(null);
-  const imagesLoadedRef = useRef<{ normal: boolean; hungry: boolean; sleep: boolean }>({ normal: false, hungry: false, sleep: false });
+  const creatureDeadImageRef = useRef<HTMLImageElement | null>(null);
+  const imagesLoadedRef = useRef<{ normal: boolean; hungry: boolean; sleep: boolean; dead: boolean }>({ normal: false, hungry: false, sleep: false, dead: false });
 
   // Initialize hunger from localStorage or default to 0
   const [hunger, setHunger] = useState<number>(() => {
@@ -309,6 +423,33 @@ export const PixelLandscape = () => {
   // Track if creature should be sleeping (no successful runs in past hour)
   const [isSleeping, setIsSleeping] = useState<boolean>(false);
 
+  // Initialize hearts from localStorage or default to 5
+  const [hearts, setHearts] = useState<number>(() => {
+    const stored = localStorage.getItem("hearts");
+    if (stored !== null) {
+      return parseInt(stored, 10);
+    }
+    localStorage.setItem("hearts", "5");
+    return 5;
+  });
+
+  // Initialize lastDailyCheck from localStorage or default to current time
+  const [lastDailyCheck, setLastDailyCheck] = useState<number>(() => {
+    const stored = localStorage.getItem("lastDailyCheck");
+    if (stored !== null) {
+      return parseInt(stored, 10);
+    }
+    const now = Date.now();
+    localStorage.setItem("lastDailyCheck", now.toString());
+    return now;
+  });
+
+  // Track if creature is dead (no hearts left)
+  const [isDead, setIsDead] = useState<boolean>(() => {
+    const storedHearts = localStorage.getItem("hearts");
+    return storedHearts !== null && parseInt(storedHearts, 10) === 0;
+  });
+
   // Fetch successful DAG runs and update hunger on mount and periodically
   useEffect(() => {
     const updateHungerFromAPI = async () => {
@@ -317,6 +458,31 @@ export const PixelLandscape = () => {
 
       // Update sleep state based on whether there were any runs in the past hour
       setIsSleeping(!hasRunsInLastHour);
+
+      // Check if 24 hours have passed since last daily check
+      const now = Date.now();
+      const twentyFourHours = 24 * 60 * 60 * 1000;
+      const timeSinceLastCheck = now - lastDailyCheck;
+
+      if (timeSinceLastCheck >= twentyFourHours) {
+        // 24 hours have passed, check for successful runs in past 24 hours
+        const hasRunsInLast24Hours = await fetchSuccessfulDagRunsLast24Hours();
+
+        if (!hasRunsInLast24Hours && hearts > 0) {
+          // No successful runs in past 24 hours, lose a heart
+          const newHearts = hearts - 1;
+          setHearts(newHearts);
+          localStorage.setItem("hearts", newHearts.toString());
+
+          if (newHearts === 0) {
+            setIsDead(true);
+          }
+        }
+
+        // Update last daily check timestamp
+        setLastDailyCheck(now);
+        localStorage.setItem("lastDailyCheck", now.toString());
+      }
 
       if (successfulRuns === 0) {
         // No successful runs, decrease hunger by 1 (but not below 0)
@@ -335,7 +501,7 @@ export const PixelLandscape = () => {
 
     // Cleanup interval on unmount
     return () => clearInterval(intervalId);
-  }, []);
+  }, [lastDailyCheck, hearts]);
 
   // Sync hunger changes to localStorage and trigger re-render
   useEffect(() => {
@@ -391,6 +557,20 @@ export const PixelLandscape = () => {
         window.dispatchEvent(event);
       }
     };
+
+    // Load dead creature image
+    const deadImg = new Image();
+    deadImg.src = creatureDead;
+    deadImg.onload = () => {
+      creatureDeadImageRef.current = deadImg;
+      imagesLoadedRef.current.dead = true;
+      // Trigger a re-render when image is loaded
+      const canvas = canvasRef.current;
+      if (canvas) {
+        const event = new Event('resize');
+        window.dispatchEvent(event);
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -422,13 +602,17 @@ export const PixelLandscape = () => {
       drawClouds(ctx!, width, blockSize);
       drawTerrain(ctx!, width, height, blockSize);
 
-      // Draw creature - priority: hungry > sleep > normal
+      // Draw creature - priority: dead > hungry > sleep > normal
       const isHungry = hunger <= 3;
       let creatureImage;
       let imageLoaded;
 
-      if (isHungry) {
-        // Hungry state takes priority
+      if (isDead) {
+        // Dead state takes highest priority
+        creatureImage = creatureDeadImageRef.current;
+        imageLoaded = imagesLoadedRef.current.dead;
+      } else if (isHungry) {
+        // Hungry state takes priority over sleep and normal
         creatureImage = creatureHungryImageRef.current;
         imageLoaded = imagesLoadedRef.current.hungry;
       } else if (isSleeping) {
@@ -445,24 +629,61 @@ export const PixelLandscape = () => {
         drawCreature(ctx!, creatureImage, width, height, blockSize);
       }
 
-      // Draw hunger bar UI overlay
-      drawHungerBar(ctx!, hunger, 10);
+      // Draw hunger bar UI overlay with hearts
+      drawHungerBar(ctx!, hunger, 10, hearts);
+
+      // Draw reset button
+      drawResetButton(ctx!, width, height);
     }
 
     render();
     const onResize = () => render();
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
-  }, [hunger, isSleeping]);
+  }, [hunger, isSleeping, hearts, isDead]);
+
+  // Handle canvas click for reset button
+  const handleCanvasClick = (event: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const clickX = (event.clientX - rect.left) * scaleX;
+    const clickY = (event.clientY - rect.top) * scaleY;
+
+    // Reset button bounds (bottom right corner)
+    const buttonWidth = 80;
+    const buttonHeight = 30;
+    const buttonX = canvas.width - buttonWidth - 20;
+    const buttonY = canvas.height - buttonHeight - 20;
+
+    // Check if click is within button bounds
+    if (
+      clickX >= buttonX &&
+      clickX <= buttonX + buttonWidth &&
+      clickY >= buttonY &&
+      clickY <= buttonY + buttonHeight
+    ) {
+      // Reset game state
+      localStorage.removeItem("hungriness");
+      localStorage.removeItem("hearts");
+      localStorage.removeItem("lastDailyCheck");
+      window.location.reload();
+    }
+  };
 
   return (
     <canvas
       ref={canvasRef}
+      onClick={handleCanvasClick}
       style={{
         width: "100%",
         height: "100%",
         display: "block",
         imageRendering: "pixelated" as any,
+        cursor: "pointer",
       }}
     />
   );

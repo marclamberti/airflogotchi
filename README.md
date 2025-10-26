@@ -19,14 +19,29 @@ Airflogotchi is a Tamagotchi-style game that responds to your Apache Airflow DAG
 
 ### Game Mechanics
 
-- **Hunger System**: Your pet has a hunger level displayed as a bar (0-10)
-- **Feeding Your Pet**: Every minute, the game checks for successful DAG runs from the past minute
+#### Hearts System (Long-term Health)
+- **5 Hearts**: Your pet has 5 hearts displayed above the hunger bar, representing long-term health
+- **Daily Check**: Every 24 hours (from when you first start playing), the game checks for successful DAG runs in the past 24 hours
+  - If no successful runs are found, you lose 1 heart
+  - If successful runs exist, you keep all your hearts
+- **Death**: After losing all 5 hearts (5 consecutive days with no successful runs), your Airflogotchi dies
+- **Reset**: Click the "RESET" button in the bottom right corner to restart the game at any time
+
+#### Hunger System (Short-term Health)
+- **Hunger Level**: Displayed as a bar (0-10) below the hearts
+- **Minute-by-Minute**: Every minute, the game checks for successful DAG runs from the past minute
   - If successful runs are found, hunger increases to match the number of successful runs
-  - If no successful runs are found, hunger decreases by 1
-- **Creature States**: Your pet's appearance changes based on its condition (in priority order):
-  - **Hungry state**: Hunger ≤ 3 (takes priority over all other states)
-  - **Sleeping state**: No successful DAG runs in the past hour AND hunger > 3
-  - **Normal state**: Default happy state when fed and active
+  - If no successful runs are found, hunger decreases by 1 (minimum 0)
+
+#### Creature States
+Your pet's appearance changes based on its condition (in priority order):
+1. **Dead state**: 0 hearts remaining (highest priority)
+2. **Hungry state**: Hunger ≤ 3
+3. **Sleeping state**: No successful DAG runs in the past hour AND hunger > 3
+4. **Normal state**: Default happy state when fed and active
+
+#### Visual Indicators
+- **Hearts**: Red hearts show current long-term health (0-5)
 - **Hunger Bar Colors**:
   - Green: Hunger > 6 (well-fed)
   - Yellow: Hunger 4-6 (getting hungry)
