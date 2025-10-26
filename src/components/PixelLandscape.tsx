@@ -3,6 +3,8 @@ import creatureNormal from "../assets/creature/normal.png";
 import creatureHungry from "../assets/creature/hungry.png";
 import creatureSleep from "../assets/creature/sleep.png";
 import creatureDead from "../assets/creature/dead.png";
+import creatureSad from "../assets/creature/sad.png";
+import creatureSick from "../assets/creature/sick.png";
 
 // Minecraft-style pixel landscape with grass, dirt, and clouds
 
@@ -200,6 +202,36 @@ async function fetchSuccessfulDagRuns(): Promise<number> {
   }
 }
 
+// API function to fetch failed DAG runs from Airflow
+async function fetchFailedDagRuns(): Promise<number> {
+  try {
+    // Calculate timestamp for 1 minute ago
+    const oneMinuteAgo = new Date(Date.now() - 1 * 60 * 1000).toISOString();
+
+    // Build API URL with query parameters (using relative URL for Vite proxy)
+    const apiUrl = new URL('/api/v2/dags/~/dagRuns', window.location.origin);
+    apiUrl.searchParams.append('limit', '50');
+    apiUrl.searchParams.append('offset', '0');
+    apiUrl.searchParams.append('start_date_gte', oneMinuteAgo);
+
+    const response = await fetch(apiUrl.toString());
+
+    if (!response.ok) {
+      throw new Error(`API request failed with status ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    // Count failed DAG runs (cap at 10)
+    const failedRuns = data.dag_runs?.filter((run: any) => run.state === 'failed').length || 0;
+
+    return Math.min(failedRuns, 10);
+  } catch (error) {
+    console.error('Error fetching failed DAG runs:', error);
+    return 0; // Return 0 on error to avoid breaking the component
+  }
+}
+
 // API function to check if there were any successful DAG runs in the past hour
 async function fetchSuccessfulDagRunsLastHour(): Promise<boolean> {
   try {
@@ -369,6 +401,65 @@ function drawHungerBar(ctx: CanvasRenderingContext2D, currentHunger: number = 0,
   }
 }
 
+function drawSicknessBar(ctx: CanvasRenderingContext2D, currentSickness: number = 0, maxSickness: number = 10) {
+  const barX = 20;
+  const barY = 120; // Below hunger bar with more spacing
+  const barWidth = 150;
+  const barHeight = 20;
+  const borderWidth = 2;
+
+  // Draw "Sickness 0/10" text above the bar
+  ctx.font = "16px monospace";
+  ctx.fillStyle = "#FFFFFF";
+  ctx.strokeStyle = "#000000";
+  ctx.lineWidth = 3;
+  const sicknessText = `Sickness ${currentSickness}/${maxSickness}`;
+  ctx.strokeText(sicknessText, barX, barY - 10);
+  ctx.fillText(sicknessText, barX, barY - 10);
+
+  // Draw bar border (dark outline)
+  ctx.fillStyle = "#000000";
+  ctx.fillRect(barX - borderWidth, barY - borderWidth, barWidth + borderWidth * 2, barHeight + borderWidth * 2);
+
+  // Draw bar background (empty bar)
+  ctx.fillStyle = "#333333";
+  ctx.fillRect(barX, barY, barWidth, barHeight);
+
+  // Draw sickness fill (purple/pink gradient based on sickness level)
+  if (currentSickness > 0) {
+    const fillWidth = (currentSickness / maxSickness) * barWidth;
+
+    // Color based on sickness level (light purple when low, dark purple/magenta when high)
+    const sicknessRatio = currentSickness / maxSickness;
+    let fillColor;
+    if (sicknessRatio <= 0.3) {
+      fillColor = "#E1BEE7"; // Light purple
+    } else if (sicknessRatio <= 0.6) {
+      fillColor = "#BA68C8"; // Medium purple
+    } else {
+      fillColor = "#8E24AA"; // Dark purple/magenta
+    }
+
+    ctx.fillStyle = fillColor;
+    ctx.fillRect(barX, barY, fillWidth, barHeight);
+
+    // Add highlight effect
+    ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
+    ctx.fillRect(barX, barY, fillWidth, barHeight / 3);
+  }
+
+  // Draw pixel notches for each sickness point
+  ctx.strokeStyle = "#000000";
+  ctx.lineWidth = 1;
+  for (let i = 1; i < maxSickness; i++) {
+    const notchX = barX + (i * barWidth / maxSickness);
+    ctx.beginPath();
+    ctx.moveTo(notchX, barY);
+    ctx.lineTo(notchX, barY + barHeight);
+    ctx.stroke();
+  }
+}
+
 function drawResetButton(ctx: CanvasRenderingContext2D, canvasWidth: number, canvasHeight: number) {
   const buttonWidth = 80;
   const buttonHeight = 30;
@@ -407,7 +498,9 @@ export const PixelLandscape = () => {
   const creatureHungryImageRef = useRef<HTMLImageElement | null>(null);
   const creatureSleepImageRef = useRef<HTMLImageElement | null>(null);
   const creatureDeadImageRef = useRef<HTMLImageElement | null>(null);
-  const imagesLoadedRef = useRef<{ normal: boolean; hungry: boolean; sleep: boolean; dead: boolean }>({ normal: false, hungry: false, sleep: false, dead: false });
+  const creatureSadImageRef = useRef<HTMLImageElement | null>(null);
+  const creatureSickImageRef = useRef<HTMLImageElement | null>(null);
+  const imagesLoadedRef = useRef<{ normal: boolean; hungry: boolean; sleep: boolean; dead: boolean; sad: boolean; sick: boolean }>({ normal: false, hungry: false, sleep: false, dead: false, sad: false, sick: false });
 
   // Initialize hunger from localStorage or default to 0
   const [hunger, setHunger] = useState<number>(() => {
@@ -422,6 +515,16 @@ export const PixelLandscape = () => {
 
   // Track if creature should be sleeping (no successful runs in past hour)
   const [isSleeping, setIsSleeping] = useState<boolean>(false);
+
+  // Initialize sickness from localStorage or default to 0
+  const [sickness, setSickness] = useState<number>(() => {
+    const stored = localStorage.getItem("sickness");
+    if (stored !== null) {
+      return parseInt(stored, 10);
+    }
+    localStorage.setItem("sickness", "0");
+    return 0;
+  });
 
   // Initialize hearts from localStorage or default to 5
   const [hearts, setHearts] = useState<number>(() => {
@@ -466,7 +569,11 @@ export const PixelLandscape = () => {
       }
 
       const successfulRuns = await fetchSuccessfulDagRuns();
+      const failedRuns = await fetchFailedDagRuns();
       const hasRunsInLastHour = await fetchSuccessfulDagRunsLastHour();
+
+      // Update sickness based on failed runs in the past minute
+      setSickness(failedRuns);
 
       // Update sleep state based on whether there were any runs in the past hour
       setIsSleeping(!hasRunsInLastHour);
@@ -531,6 +638,11 @@ export const PixelLandscape = () => {
     localStorage.setItem("isDead", isDead.toString());
   }, [isDead]);
 
+  // Sync sickness changes to localStorage
+  useEffect(() => {
+    localStorage.setItem("sickness", sickness.toString());
+  }, [sickness]);
+
   // Load creature images once
   useEffect(() => {
     // Load normal creature image
@@ -588,6 +700,34 @@ export const PixelLandscape = () => {
         window.dispatchEvent(event);
       }
     };
+
+    // Load sad creature image
+    const sadImg = new Image();
+    sadImg.src = creatureSad;
+    sadImg.onload = () => {
+      creatureSadImageRef.current = sadImg;
+      imagesLoadedRef.current.sad = true;
+      // Trigger a re-render when image is loaded
+      const canvas = canvasRef.current;
+      if (canvas) {
+        const event = new Event('resize');
+        window.dispatchEvent(event);
+      }
+    };
+
+    // Load sick creature image
+    const sickImg = new Image();
+    sickImg.src = creatureSick;
+    sickImg.onload = () => {
+      creatureSickImageRef.current = sickImg;
+      imagesLoadedRef.current.sick = true;
+      // Trigger a re-render when image is loaded
+      const canvas = canvasRef.current;
+      if (canvas) {
+        const event = new Event('resize');
+        window.dispatchEvent(event);
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -619,7 +759,7 @@ export const PixelLandscape = () => {
       drawClouds(ctx!, width, blockSize);
       drawTerrain(ctx!, width, height, blockSize);
 
-      // Draw creature - priority: dead > hungry > sleep > normal
+      // Draw creature - priority: dead > sick > sad > hungry > sleeping > normal
       const isHungry = hunger <= 3;
       let creatureImage;
       let imageLoaded;
@@ -628,6 +768,14 @@ export const PixelLandscape = () => {
         // Dead state takes highest priority
         creatureImage = creatureDeadImageRef.current;
         imageLoaded = imagesLoadedRef.current.dead;
+      } else if (sickness > 5) {
+        // Sick state (sickness > 5)
+        creatureImage = creatureSickImageRef.current;
+        imageLoaded = imagesLoadedRef.current.sick;
+      } else if (sickness > 0 && sickness <= 5) {
+        // Sad state (sickness 1-5)
+        creatureImage = creatureSadImageRef.current;
+        imageLoaded = imagesLoadedRef.current.sad;
       } else if (isHungry) {
         // Hungry state takes priority over sleep and normal
         creatureImage = creatureHungryImageRef.current;
@@ -649,6 +797,9 @@ export const PixelLandscape = () => {
       // Draw hunger bar UI overlay with hearts
       drawHungerBar(ctx!, hunger, 10, hearts);
 
+      // Draw sickness bar UI overlay
+      drawSicknessBar(ctx!, sickness, 10);
+
       // Draw reset button
       drawResetButton(ctx!, width, height);
     }
@@ -657,7 +808,7 @@ export const PixelLandscape = () => {
     const onResize = () => render();
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
-  }, [hunger, isSleeping, hearts, isDead]);
+  }, [hunger, isSleeping, hearts, isDead, sickness]);
 
   // Handle canvas click for reset button
   const handleCanvasClick = (event: React.MouseEvent<HTMLCanvasElement>) => {
@@ -688,6 +839,7 @@ export const PixelLandscape = () => {
       localStorage.removeItem("hearts");
       localStorage.removeItem("lastDailyCheck");
       localStorage.removeItem("isDead");
+      localStorage.removeItem("sickness");
       window.location.reload();
     }
   };

@@ -33,12 +33,20 @@ Airflogotchi is a Tamagotchi-style game that responds to your Apache Airflow DAG
   - If successful runs are found, hunger increases to match the number of successful runs
   - If no successful runs are found, hunger decreases by 1 (minimum 0)
 
+#### Sickness System (Failure Tracking)
+- **Sickness Level**: Displayed as a purple/pink bar (0-10) below the hunger bar
+- **Failed DAG Runs**: Every minute, the game checks for failed DAG runs from the past minute
+  - Sickness level = count of failed DAG runs (capped at 10)
+  - More failures = higher sickness level
+
 #### Creature States
 Your pet's appearance changes based on its condition (in priority order):
 1. **Dead state**: 0 hearts remaining (highest priority)
-2. **Hungry state**: Hunger ≤ 3
-3. **Sleeping state**: No successful DAG runs in the past hour AND hunger > 3
-4. **Normal state**: Default happy state when fed and active
+2. **Sick state**: Sickness > 5 (shows sick creature)
+3. **Sad state**: Sickness 1-5 (shows sad creature)
+4. **Hungry state**: Hunger ≤ 3
+5. **Sleeping state**: No successful DAG runs in the past hour AND hunger > 3
+6. **Normal state**: Default happy state when fed and active
 
 #### Visual Indicators
 - **Hearts**: Red hearts show current long-term health (0-5)
@@ -46,6 +54,10 @@ Your pet's appearance changes based on its condition (in priority order):
   - Green: Hunger > 6 (well-fed)
   - Yellow: Hunger 4-6 (getting hungry)
   - Red: Hunger ≤ 3 (very hungry)
+- **Sickness Bar Colors**:
+  - Light Purple: Sickness 0-3 (low sickness)
+  - Medium Purple: Sickness 4-6 (moderate sickness)
+  - Dark Purple/Magenta: Sickness 7-10 (high sickness)
 
 ### Getting Started
 
