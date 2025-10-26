@@ -11,7 +11,35 @@
 
 # airflogotchi
 
-This is a React plugin template for Apache Airflow that builds as a library component.
+Airflogotchi is a virtual pet game integrated with Apache Airflow. Keep your pet happy by running successful DAG runs!
+
+## How to Play
+
+Airflogotchi is a Tamagotchi-style game that responds to your Apache Airflow DAG runs:
+
+### Game Mechanics
+
+- **Hunger System**: Your pet has a hunger level displayed as a bar (0-10)
+- **Feeding Your Pet**: Every minute, the game checks for successful DAG runs from the past minute
+  - If successful runs are found, hunger increases to match the number of successful runs
+  - If no successful runs are found, hunger decreases by 1
+- **Creature States**: Your pet's appearance changes based on its condition (in priority order):
+  - **Hungry state**: Hunger ≤ 3 (takes priority over all other states)
+  - **Sleeping state**: No successful DAG runs in the past hour AND hunger > 3
+  - **Normal state**: Default happy state when fed and active
+- **Hunger Bar Colors**:
+  - Green: Hunger > 6 (well-fed)
+  - Yellow: Hunger 4-6 (getting hungry)
+  - Red: Hunger ≤ 3 (very hungry)
+
+### Getting Started
+
+1. Start the development server: `pnpm dev`
+2. Ensure your Apache Airflow instance is running and accessible
+3. Run your DAGs successfully to feed your pet
+4. Watch your Airflogotchi thrive or struggle based on your DAG performance!
+
+The game automatically polls your Airflow instance every minute to check for successful DAG runs, so keep those DAGs running to keep your pet happy!
 
 ## Development
 

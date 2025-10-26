@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import creatureNormal from "../assets/creature/normal.png";
 import creatureHungry from "../assets/creature/hungry.png";
+import creatureSleep from "../assets/creature/sleep.png";
 
 // Minecraft-style pixel landscape with grass, dirt, and clouds
 
@@ -171,14 +172,14 @@ function drawCreature(ctx: CanvasRenderingContext2D, image: HTMLImageElement, wi
 // API function to fetch successful DAG runs from Airflow
 async function fetchSuccessfulDagRuns(): Promise<number> {
   try {
-    // Calculate timestamp for 30 minutes ago
-    const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+    // Calculate timestamp for 1 minute ago
+    const oneMinuteAgo = new Date(Date.now() - 1 * 60 * 1000).toISOString();
 
     // Build API URL with query parameters (using relative URL for Vite proxy)
     const apiUrl = new URL('/api/v2/dags/~/dagRuns', window.location.origin);
     apiUrl.searchParams.append('limit', '50');
     apiUrl.searchParams.append('offset', '0');
-    apiUrl.searchParams.append('start_date_gte', thirtyMinutesAgo);
+    apiUrl.searchParams.append('start_date_gte', oneMinuteAgo);
 
     const response = await fetch(apiUrl.toString());
 
@@ -195,6 +196,36 @@ async function fetchSuccessfulDagRuns(): Promise<number> {
   } catch (error) {
     console.error('Error fetching DAG runs:', error);
     return 0; // Return 0 on error to avoid breaking the component
+  }
+}
+
+// API function to check if there were any successful DAG runs in the past hour
+async function fetchSuccessfulDagRunsLastHour(): Promise<boolean> {
+  try {
+    // Calculate timestamp for 1 hour ago
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+
+    // Build API URL with query parameters (using relative URL for Vite proxy)
+    const apiUrl = new URL('/api/v2/dags/~/dagRuns', window.location.origin);
+    apiUrl.searchParams.append('limit', '50');
+    apiUrl.searchParams.append('offset', '0');
+    apiUrl.searchParams.append('start_date_gte', oneHourAgo);
+
+    const response = await fetch(apiUrl.toString());
+
+    if (!response.ok) {
+      throw new Error(`API request failed with status ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    // Check if any successful DAG runs exist
+    const hasSuccessfulRuns = data.dag_runs?.some((run: any) => run.state === 'success') || false;
+
+    return hasSuccessfulRuns;
+  } catch (error) {
+    console.error('Error fetching DAG runs for sleep check:', error);
+    return true; // Return true on error to avoid showing sleep state incorrectly
   }
 }
 
@@ -261,7 +292,8 @@ export const PixelLandscape = () => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const creatureNormalImageRef = useRef<HTMLImageElement | null>(null);
   const creatureHungryImageRef = useRef<HTMLImageElement | null>(null);
-  const imagesLoadedRef = useRef<{ normal: boolean; hungry: boolean }>({ normal: false, hungry: false });
+  const creatureSleepImageRef = useRef<HTMLImageElement | null>(null);
+  const imagesLoadedRef = useRef<{ normal: boolean; hungry: boolean; sleep: boolean }>({ normal: false, hungry: false, sleep: false });
 
   // Initialize hunger from localStorage or default to 0
   const [hunger, setHunger] = useState<number>(() => {
@@ -274,18 +306,32 @@ export const PixelLandscape = () => {
     return 0;
   });
 
+  // Track if creature should be sleeping (no successful runs in past hour)
+  const [isSleeping, setIsSleeping] = useState<boolean>(false);
+
   // Fetch successful DAG runs and update hunger on mount and periodically
   useEffect(() => {
     const updateHungerFromAPI = async () => {
       const successfulRuns = await fetchSuccessfulDagRuns();
-      setHunger(successfulRuns);
+      const hasRunsInLastHour = await fetchSuccessfulDagRunsLastHour();
+
+      // Update sleep state based on whether there were any runs in the past hour
+      setIsSleeping(!hasRunsInLastHour);
+
+      if (successfulRuns === 0) {
+        // No successful runs, decrease hunger by 1 (but not below 0)
+        setHunger(prev => Math.max(0, prev - 1));
+      } else {
+        // Set hunger to the number of successful runs
+        setHunger(successfulRuns);
+      }
     };
 
     // Initial fetch on mount
     updateHungerFromAPI();
 
-    // Set up polling every 5 minutes (300000ms)
-    const intervalId = setInterval(updateHungerFromAPI, 5 * 60 * 1000);
+    // Set up polling every 1 minute (60000ms)
+    const intervalId = setInterval(updateHungerFromAPI, 1 * 60 * 1000);
 
     // Cleanup interval on unmount
     return () => clearInterval(intervalId);
@@ -331,6 +377,20 @@ export const PixelLandscape = () => {
         window.dispatchEvent(event);
       }
     };
+
+    // Load sleep creature image
+    const sleepImg = new Image();
+    sleepImg.src = creatureSleep;
+    sleepImg.onload = () => {
+      creatureSleepImageRef.current = sleepImg;
+      imagesLoadedRef.current.sleep = true;
+      // Trigger a re-render when image is loaded
+      const canvas = canvasRef.current;
+      if (canvas) {
+        const event = new Event('resize');
+        window.dispatchEvent(event);
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -362,10 +422,24 @@ export const PixelLandscape = () => {
       drawClouds(ctx!, width, blockSize);
       drawTerrain(ctx!, width, height, blockSize);
 
-      // Draw creature - use hungry image if hunger <= 3, otherwise normal
+      // Draw creature - priority: hungry > sleep > normal
       const isHungry = hunger <= 3;
-      const creatureImage = isHungry ? creatureHungryImageRef.current : creatureNormalImageRef.current;
-      const imageLoaded = isHungry ? imagesLoadedRef.current.hungry : imagesLoadedRef.current.normal;
+      let creatureImage;
+      let imageLoaded;
+
+      if (isHungry) {
+        // Hungry state takes priority
+        creatureImage = creatureHungryImageRef.current;
+        imageLoaded = imagesLoadedRef.current.hungry;
+      } else if (isSleeping) {
+        // Sleep state if not hungry and no runs in past hour
+        creatureImage = creatureSleepImageRef.current;
+        imageLoaded = imagesLoadedRef.current.sleep;
+      } else {
+        // Normal state
+        creatureImage = creatureNormalImageRef.current;
+        imageLoaded = imagesLoadedRef.current.normal;
+      }
 
       if (imageLoaded && creatureImage) {
         drawCreature(ctx!, creatureImage, width, height, blockSize);
@@ -379,7 +453,7 @@ export const PixelLandscape = () => {
     const onResize = () => render();
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
-  }, [hunger]);
+  }, [hunger, isSleeping]);
 
   return (
     <canvas
