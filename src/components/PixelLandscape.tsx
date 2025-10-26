@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import creatureNormal from "../assets/creature/normal.png";
 
 // Minecraft-style pixel landscape with grass, dirt, and clouds
 
@@ -144,8 +145,48 @@ function drawTerrain(ctx: CanvasRenderingContext2D, width: number, height: numbe
   }
 }
 
+function drawCreature(ctx: CanvasRenderingContext2D, image: HTMLImageElement, width: number, height: number, blockSize: number) {
+  // Calculate ground level (same as terrain calculation)
+  const blocksY = Math.floor(height / blockSize);
+  const groundLevel = Math.floor(blocksY * 0.7);
+
+  // Scale the creature to be about 2 blocks tall (fits better with the landscape)
+  const creatureHeight = blockSize * 8;
+  const aspectRatio = image.width / image.height;
+  const creatureWidth = creatureHeight * aspectRatio;
+
+  // Calculate creature position
+  // Center horizontally
+  const creatureX = Math.floor(width / 2) - Math.floor(creatureWidth / 2);
+
+  // Position on top of grass (ground level in pixels minus scaled height)
+  const groundPixelY = groundLevel * blockSize;
+  const creatureY = groundPixelY - creatureHeight + 5; // Slight adjustment to sit nicely on grass
+
+  // Draw the scaled creature
+  ctx.drawImage(image, creatureX, creatureY, creatureWidth, creatureHeight);
+}
+
 export const PixelLandscape = () => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const creatureImageRef = useRef<HTMLImageElement | null>(null);
+  const imageLoadedRef = useRef<boolean>(false);
+
+  // Load creature image once
+  useEffect(() => {
+    const img = new Image();
+    img.src = creatureNormal;
+    img.onload = () => {
+      creatureImageRef.current = img;
+      imageLoadedRef.current = true;
+      // Trigger a re-render when image is loaded
+      const canvas = canvasRef.current;
+      if (canvas) {
+        const event = new Event('resize');
+        window.dispatchEvent(event);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current!;
@@ -175,6 +216,11 @@ export const PixelLandscape = () => {
       drawSky(ctx!, width, height);
       drawClouds(ctx!, width, blockSize);
       drawTerrain(ctx!, width, height, blockSize);
+
+      // Draw creature if image is loaded
+      if (imageLoadedRef.current && creatureImageRef.current) {
+        drawCreature(ctx!, creatureImageRef.current, width, height, blockSize);
+      }
     }
 
     render();
