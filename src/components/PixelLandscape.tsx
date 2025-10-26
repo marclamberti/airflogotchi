@@ -112,7 +112,7 @@ function drawSky(ctx: CanvasRenderingContext2D, width: number, height: number) {
   drawRect(ctx, 0, 0, width, height, PALETTE.sky);
 }
 
-function drawClouds(ctx: CanvasRenderingContext2D, width: number, height: number, blockSize: number) {
+function drawClouds(ctx: CanvasRenderingContext2D, width: number, blockSize: number) {
   // Draw several clouds at different positions
   const cloudPositions = [
     { x: 5, y: 3 },
@@ -166,15 +166,15 @@ export const PixelLandscape = () => {
       canvas.style.height = `${height}px`;
 
       // Disable antialiasing for crisp pixels
-      ctx.imageSmoothingEnabled = false;
+      ctx!.imageSmoothingEnabled = false;
 
       // Clear canvas
-      ctx.clearRect(0, 0, width, height);
+      ctx!.clearRect(0, 0, width, height);
 
       // Draw scene
-      drawSky(ctx, width, height);
-      drawClouds(ctx, width, height, blockSize);
-      drawTerrain(ctx, width, height, blockSize);
+      drawSky(ctx!, width, height);
+      drawClouds(ctx!, width, blockSize);
+      drawTerrain(ctx!, width, height, blockSize);
     }
 
     render();
@@ -191,8 +191,6 @@ export const PixelLandscape = () => {
         height: "100%",
         display: "block",
         imageRendering: "pixelated" as any,
-        imageRendering: "-moz-crisp-edges" as any,
-        imageRendering: "crisp-edges" as any,
       }}
     />
   );
