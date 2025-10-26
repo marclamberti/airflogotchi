@@ -167,6 +167,65 @@ function drawCreature(ctx: CanvasRenderingContext2D, image: HTMLImageElement, wi
   ctx.drawImage(image, creatureX, creatureY, creatureWidth, creatureHeight);
 }
 
+function drawHungerBar(ctx: CanvasRenderingContext2D, currentHunger: number = 0, maxHunger: number = 10) {
+  const barX = 20;
+  const barY = 40;
+  const barWidth = 150;
+  const barHeight = 20;
+  const borderWidth = 2;
+
+  // Draw "0/10" text above the bar
+  ctx.font = "16px monospace";
+  ctx.fillStyle = "#FFFFFF";
+  ctx.strokeStyle = "#000000";
+  ctx.lineWidth = 3;
+  const hungerText = `${currentHunger}/${maxHunger}`;
+  ctx.strokeText(hungerText, barX, barY - 10);
+  ctx.fillText(hungerText, barX, barY - 10);
+
+  // Draw bar border (dark outline)
+  ctx.fillStyle = "#000000";
+  ctx.fillRect(barX - borderWidth, barY - borderWidth, barWidth + borderWidth * 2, barHeight + borderWidth * 2);
+
+  // Draw bar background (empty bar)
+  ctx.fillStyle = "#333333";
+  ctx.fillRect(barX, barY, barWidth, barHeight);
+
+  // Draw hunger fill (green to red gradient based on hunger level)
+  if (currentHunger > 0) {
+    const fillWidth = (currentHunger / maxHunger) * barWidth;
+
+    // Color based on hunger level (green when full, red when hungry)
+    const hungerRatio = currentHunger / maxHunger;
+    let fillColor;
+    if (hungerRatio > 0.6) {
+      fillColor = "#4CAF50"; // Green
+    } else if (hungerRatio > 0.3) {
+      fillColor = "#FFC107"; // Yellow
+    } else {
+      fillColor = "#F44336"; // Red
+    }
+
+    ctx.fillStyle = fillColor;
+    ctx.fillRect(barX, barY, fillWidth, barHeight);
+
+    // Add highlight effect
+    ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
+    ctx.fillRect(barX, barY, fillWidth, barHeight / 3);
+  }
+
+  // Draw pixel notches for each hunger point
+  ctx.strokeStyle = "#000000";
+  ctx.lineWidth = 1;
+  for (let i = 1; i < maxHunger; i++) {
+    const notchX = barX + (i * barWidth / maxHunger);
+    ctx.beginPath();
+    ctx.moveTo(notchX, barY);
+    ctx.lineTo(notchX, barY + barHeight);
+    ctx.stroke();
+  }
+}
+
 export const PixelLandscape = () => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const creatureImageRef = useRef<HTMLImageElement | null>(null);
@@ -221,6 +280,9 @@ export const PixelLandscape = () => {
       if (imageLoadedRef.current && creatureImageRef.current) {
         drawCreature(ctx!, creatureImageRef.current, width, height, blockSize);
       }
+
+      // Draw hunger bar UI overlay
+      drawHungerBar(ctx!, 0, 10);
     }
 
     render();
