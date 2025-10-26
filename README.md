@@ -46,7 +46,8 @@ Your pet's appearance changes based on its condition (in priority order):
 3. **Sad state**: Sickness 1-5 (shows sad creature)
 4. **Hungry state**: Hunger ≤ 3
 5. **Sleeping state**: No successful DAG runs in the past hour AND hunger > 3
-6. **Normal state**: Default happy state when fed and active
+6. **Happy state**: Perfect health - Sickness = 0, Hearts = 5, and Hunger = 10 (shows happy creature)
+7. **Normal state**: Default state when fed and active but not at perfect stats
 
 #### Visual Indicators
 - **Hearts**: Red hearts show current long-term health (0-5)

@@ -5,6 +5,7 @@ import creatureSleep from "../assets/creature/sleep.png";
 import creatureDead from "../assets/creature/dead.png";
 import creatureSad from "../assets/creature/sad.png";
 import creatureSick from "../assets/creature/sick.png";
+import creatureHappy from "../assets/creature/happy.png";
 
 // Minecraft-style pixel landscape with grass, dirt, and clouds
 
@@ -500,7 +501,8 @@ export const PixelLandscape = () => {
   const creatureDeadImageRef = useRef<HTMLImageElement | null>(null);
   const creatureSadImageRef = useRef<HTMLImageElement | null>(null);
   const creatureSickImageRef = useRef<HTMLImageElement | null>(null);
-  const imagesLoadedRef = useRef<{ normal: boolean; hungry: boolean; sleep: boolean; dead: boolean; sad: boolean; sick: boolean }>({ normal: false, hungry: false, sleep: false, dead: false, sad: false, sick: false });
+  const creatureHappyImageRef = useRef<HTMLImageElement | null>(null);
+  const imagesLoadedRef = useRef<{ normal: boolean; hungry: boolean; sleep: boolean; dead: boolean; sad: boolean; sick: boolean; happy: boolean }>({ normal: false, hungry: false, sleep: false, dead: false, sad: false, sick: false, happy: false });
 
   // Initialize hunger from localStorage or default to 0
   const [hunger, setHunger] = useState<number>(() => {
@@ -728,6 +730,20 @@ export const PixelLandscape = () => {
         window.dispatchEvent(event);
       }
     };
+
+    // Load happy creature image
+    const happyImg = new Image();
+    happyImg.src = creatureHappy;
+    happyImg.onload = () => {
+      creatureHappyImageRef.current = happyImg;
+      imagesLoadedRef.current.happy = true;
+      // Trigger a re-render when image is loaded
+      const canvas = canvasRef.current;
+      if (canvas) {
+        const event = new Event('resize');
+        window.dispatchEvent(event);
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -759,7 +775,7 @@ export const PixelLandscape = () => {
       drawClouds(ctx!, width, blockSize);
       drawTerrain(ctx!, width, height, blockSize);
 
-      // Draw creature - priority: dead > sick > sad > hungry > sleeping > normal
+      // Draw creature - priority: dead > sick > sad > hungry > sleeping > happy > normal
       const isHungry = hunger <= 3;
       let creatureImage;
       let imageLoaded;
@@ -784,6 +800,10 @@ export const PixelLandscape = () => {
         // Sleep state if not hungry and no runs in past hour
         creatureImage = creatureSleepImageRef.current;
         imageLoaded = imagesLoadedRef.current.sleep;
+      } else if (sickness === 0 && hearts === 5 && hunger === 10) {
+        // Happy state - perfect health!
+        creatureImage = creatureHappyImageRef.current;
+        imageLoaded = imagesLoadedRef.current.happy;
       } else {
         // Normal state
         creatureImage = creatureNormalImageRef.current;
