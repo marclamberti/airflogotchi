@@ -9,13 +9,13 @@
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
-# airflogotchi
+# AirfloGotchi
 
-Airflogotchi is a virtual pet game integrated with Apache Airflow. Keep your pet happy by running successful DAG runs!
+AirfloGotchi is a virtual pet game integrated with Apache Airflow. Keep your pet happy by running successful DAG runs!
 
 ## How to Play
 
-Airflogotchi is a Tamagotchi-style game that responds to your Apache Airflow DAG runs:
+AirfloGotchi is a Tamagotchi-style game that responds to your Apache Airflow DAG runs:
 
 ### Game Mechanics
 
