@@ -173,19 +173,56 @@ function drawCreature(ctx: CanvasRenderingContext2D, image: HTMLImageElement, wi
   ctx.drawImage(image, creatureX, creatureY, creatureWidth, creatureHeight);
 }
 
+// Function to get JWT token from Airflow API
+async function getBearerToken(): Promise<string | null> {
+  try {
+    const response = await fetch('/auth/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        username: 'airflow',
+        password: 'airflow'
+      })
+    });
+
+    if (!response.ok) {
+      console.error('Failed to get bearer token:', response.status);
+      return null;
+    }
+
+    const data = await response.json();
+    return data.access_token || null;
+  } catch (error) {
+    console.error('Error getting bearer token:', error);
+    return null;
+  }
+}
+
 // API function to fetch successful DAG runs from Airflow
 async function fetchSuccessfulDagRuns(): Promise<number> {
   try {
-    // Calculate timestamp for 1 minute ago
-    const oneMinuteAgo = new Date(Date.now() - 1 * 60 * 1000).toISOString();
+    const token = await getBearerToken();
+    if (!token) {
+      throw new Error('Failed to obtain bearer token');
+    }
+
+    // Calculate timestamp for 30 minutes ago
+    const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
 
     // Build API URL with query parameters (using relative URL for Vite proxy)
     const apiUrl = new URL('/api/v2/dags/~/dagRuns', window.location.origin);
     apiUrl.searchParams.append('limit', '50');
     apiUrl.searchParams.append('offset', '0');
-    apiUrl.searchParams.append('start_date_gte', oneMinuteAgo);
+    apiUrl.searchParams.append('start_date_gte', thirtyMinutesAgo);
 
-    const response = await fetch(apiUrl.toString());
+    const response = await fetch(apiUrl.toString(), {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
 
     if (!response.ok) {
       throw new Error(`API request failed with status ${response.status}`);
@@ -206,16 +243,26 @@ async function fetchSuccessfulDagRuns(): Promise<number> {
 // API function to fetch failed DAG runs from Airflow
 async function fetchFailedDagRuns(): Promise<number> {
   try {
-    // Calculate timestamp for 1 minute ago
-    const oneMinuteAgo = new Date(Date.now() - 1 * 60 * 1000).toISOString();
+    const token = await getBearerToken();
+    if (!token) {
+      throw new Error('Failed to obtain bearer token');
+    }
+
+    // Calculate timestamp for 30 minutes ago
+    const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
 
     // Build API URL with query parameters (using relative URL for Vite proxy)
     const apiUrl = new URL('/api/v2/dags/~/dagRuns', window.location.origin);
     apiUrl.searchParams.append('limit', '50');
     apiUrl.searchParams.append('offset', '0');
-    apiUrl.searchParams.append('start_date_gte', oneMinuteAgo);
+    apiUrl.searchParams.append('start_date_gte', thirtyMinutesAgo);
 
-    const response = await fetch(apiUrl.toString());
+    const response = await fetch(apiUrl.toString(), {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
 
     if (!response.ok) {
       throw new Error(`API request failed with status ${response.status}`);
@@ -236,6 +283,11 @@ async function fetchFailedDagRuns(): Promise<number> {
 // API function to check if there were any successful DAG runs in the past hour
 async function fetchSuccessfulDagRunsLastHour(): Promise<boolean> {
   try {
+    const token = await getBearerToken();
+    if (!token) {
+      throw new Error('Failed to obtain bearer token');
+    }
+
     // Calculate timestamp for 1 hour ago
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
 
@@ -245,7 +297,12 @@ async function fetchSuccessfulDagRunsLastHour(): Promise<boolean> {
     apiUrl.searchParams.append('offset', '0');
     apiUrl.searchParams.append('start_date_gte', oneHourAgo);
 
-    const response = await fetch(apiUrl.toString());
+    const response = await fetch(apiUrl.toString(), {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
 
     if (!response.ok) {
       throw new Error(`API request failed with status ${response.status}`);
@@ -266,6 +323,11 @@ async function fetchSuccessfulDagRunsLastHour(): Promise<boolean> {
 // API function to check if there were any successful DAG runs in the past 24 hours
 async function fetchSuccessfulDagRunsLast24Hours(): Promise<boolean> {
   try {
+    const token = await getBearerToken();
+    if (!token) {
+      throw new Error('Failed to obtain bearer token');
+    }
+
     // Calculate timestamp for 24 hours ago
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
@@ -275,7 +337,12 @@ async function fetchSuccessfulDagRunsLast24Hours(): Promise<boolean> {
     apiUrl.searchParams.append('offset', '0');
     apiUrl.searchParams.append('start_date_gte', twentyFourHoursAgo);
 
-    const response = await fetch(apiUrl.toString());
+    const response = await fetch(apiUrl.toString(), {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
 
     if (!response.ok) {
       throw new Error(`API request failed with status ${response.status}`);
@@ -508,7 +575,8 @@ export const PixelLandscape = () => {
   const [hunger, setHunger] = useState<number>(() => {
     const stored = localStorage.getItem("hungriness");
     if (stored !== null) {
-      return parseInt(stored, 10);
+      // Cap at max value of 10
+      return Math.min(10, Math.max(0, parseInt(stored, 10)));
     }
     // Set initial value to 0 in localStorage
     localStorage.setItem("hungriness", "0");
@@ -522,7 +590,8 @@ export const PixelLandscape = () => {
   const [sickness, setSickness] = useState<number>(() => {
     const stored = localStorage.getItem("sickness");
     if (stored !== null) {
-      return parseInt(stored, 10);
+      // Cap at max value of 10
+      return Math.min(10, Math.max(0, parseInt(stored, 10)));
     }
     localStorage.setItem("sickness", "0");
     return 0;
@@ -574,8 +643,8 @@ export const PixelLandscape = () => {
       const failedRuns = await fetchFailedDagRuns();
       const hasRunsInLastHour = await fetchSuccessfulDagRunsLastHour();
 
-      // Update sickness based on failed runs in the past minute
-      setSickness(failedRuns);
+      // Update sickness based on failed runs in the past 30 minutes (already capped at 10 in fetchFailedDagRuns)
+      setSickness(Math.min(failedRuns, 10));
 
       // Update sleep state based on whether there were any runs in the past hour
       setIsSleeping(!hasRunsInLastHour);
@@ -609,16 +678,16 @@ export const PixelLandscape = () => {
         // No successful runs, decrease hunger by 1 (but not below 0)
         setHunger(prev => Math.max(0, prev - 1));
       } else {
-        // Set hunger to the number of successful runs
-        setHunger(successfulRuns);
+        // Set hunger to the number of successful runs (cap at 10)
+        setHunger(Math.min(successfulRuns, 10));
       }
     };
 
     // Initial fetch on mount
     updateHungerFromAPI();
 
-    // Set up polling every 1 minute (60000ms)
-    const intervalId = setInterval(updateHungerFromAPI, 1 * 60 * 1000);
+    // Set up polling every 30 minutes (1800000ms)
+    const intervalId = setInterval(updateHungerFromAPI, 30 * 60 * 1000);
 
     // Cleanup interval on unmount
     return () => clearInterval(intervalId);

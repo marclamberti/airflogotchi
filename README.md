@@ -29,13 +29,13 @@ Airflogotchi is a Tamagotchi-style game that responds to your Apache Airflow DAG
 
 #### Hunger System (Short-term Health)
 - **Hunger Level**: Displayed as a bar (0-10) below the hearts
-- **Minute-by-Minute**: Every minute, the game checks for successful DAG runs from the past minute
+- **Every 30 Minutes**: Every 30 minutes, the game checks for successful DAG runs from the past 30 minutes
   - If successful runs are found, hunger increases to match the number of successful runs
   - If no successful runs are found, hunger decreases by 1 (minimum 0)
 
 #### Sickness System (Failure Tracking)
 - **Sickness Level**: Displayed as a purple/pink bar (0-10) below the hunger bar
-- **Failed DAG Runs**: Every minute, the game checks for failed DAG runs from the past minute
+- **Failed DAG Runs**: Every 30 minutes, the game checks for failed DAG runs from the past 30 minutes
   - Sickness level = count of failed DAG runs (capped at 10)
   - More failures = higher sickness level
 
@@ -67,7 +67,7 @@ Your pet's appearance changes based on its condition (in priority order):
 3. Run your DAGs successfully to feed your pet
 4. Watch your Airflogotchi thrive or struggle based on your DAG performance!
 
-The game automatically polls your Airflow instance every minute to check for successful DAG runs, so keep those DAGs running to keep your pet happy!
+The game automatically polls your Airflow instance every 30 minutes to check for DAG runs, so keep those DAGs running to keep your pet happy!
 
 ## Development
 
