@@ -1,15 +1,6 @@
-<!-- START doctoc generated TOC please keep comment here to allow auto update -->
-<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
-**Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
-
-- [airflogotchi](#project_name)
-  - [Development](#development)
-  - [Best Practices](#best-practices)
-  - [Troubleshooting](#troubleshooting)
-
-<!-- END doctoc generated TOC please keep comment here to allow auto update -->
-
 # AirfloGotchi
+
+![alt text](https://github.com/marclamberti/airflogotchi/blob/main/screenshots/game.png)
 
 AirfloGotchi is a virtual pet game integrated with Apache Airflow. Keep your pet happy by running successful DAG runs!
 
