@@ -176,5 +176,4 @@ For more help, check the main project documentation.
 
 ### Deployment to Airflow Plugins
 
-Once the development is complete, you can build the library using `pnpm build` and then host the content of the `dist` folder. You can do that on your own infrastructure or within airflow
-by adding static file serving to your api server via registering a plugin `fastapi_apps`. You can take a look at the [Airflow documentation](https://airflow.apache.org/docs/apache-airflow/stable/plugins.html) for more information on how to do that.
+Once the development is complete, you can build the library using `pnpm build` and put the content fo the `dist` folder into `plugins/airflogotchi/dist`. You can take a look at the [Airflow documentation](https://airflow.apache.org/docs/apache-airflow/stable/plugins.html) for more information on how to do that.
